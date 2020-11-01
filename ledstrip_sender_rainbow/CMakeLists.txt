@@ -12,7 +12,7 @@ find_package(Boost 1.65 REQUIRED COMPONENTS system)
 
 ### files
 set( SOURCE_FILES
-     "src/main.cpp"
+     "main.cpp"
      )
 
 set( INCLUDE_FILES

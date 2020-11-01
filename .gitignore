@@ -2,4 +2,8 @@
 # ----------------------------------------------------------------------------
 
 .directory
-ledstrip_sender/build/
+
+*/build/
+build-ledstrip*
+
+*.pro.user
