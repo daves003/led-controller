@@ -161,6 +161,8 @@ void setup()
 		animator.RestartAnimation(0);
 	}
 	while (error);
+	Serial.print("UDP listening on port ");
+	Serial.println(PORT);
 }
 
 ///////////// LOOP /////////////
