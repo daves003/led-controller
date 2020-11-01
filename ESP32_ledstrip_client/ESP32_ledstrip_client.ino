@@ -90,6 +90,19 @@ void animateConnected(AnimationParam param)
 	}
 }
 
+void error()
+{
+	// display a neverending error animation
+	NeoPixelAnimator animator(1); //only 1 animation
+	animator.StartAnimation(0, 100, animateConnectionFailure);
+	while(true)
+	{
+		if(!animator.IsAnimating()) animator.RestartAnimation(0);
+		animator.UpdateAnimations();
+		for(auto& s : g_strips) s.Show();
+	}
+}
+
 ///////////// SETUP /////////////
 void setup()
 {
@@ -135,45 +148,42 @@ void setup()
 	Serial.println("Connection established.");
 	Serial.print  ("IP address: ");
 	Serial.println(WiFi.localIP());
-	if(g_udp.begin(PORT) == 0)
-	{
-		//could not start listening
-		animator.StartAnimation(0, 500, animateConnectionFailure);
+	bool error;
+	do {
+		error = g_udp.begin(PORT) == 0;
+		if(error) animator.StartAnimation(0, 500, animateConnectionFailure);
+		else      animator.StartAnimation(0, 500, animateConnected);
+		while(animator.IsAnimating())
+		{
+			animator.UpdateAnimations();
+			for(auto& s : g_strips) s.Show();
+		}
+		animator.RestartAnimation(0);
 	}
-	else
-	{
-		// play 'connected' animation
-		animator.StartAnimation(0, 500, animateConnected);
-	}
-	while(animator.IsAnimating())
-	{
-		animator.UpdateAnimations();
-		for(auto& s : g_strips) s.Show();
-	}
+	while (error);
 }
 
 ///////////// LOOP /////////////
 void loop()
 {
 	const auto available = g_udp.parsePacket();
-//	if(available == 0) return;
-	for(size_t i = 0; i < 144; i += 1)
-	{
-		HsbColor col(float(random(INT_MAX))/INT_MAX, 1.f, 0.5f);
-		for(auto& s : g_strips) s.SetPixelColor(i, col);
-	}
-	for(auto& s : g_strips) s.Show();
-	delay(100);
-	return;
+	if(available == 0) return;
 
-
-	char* buf = new char[available];
+	auto* buf = new byte[available];
 	for(size_t i = 0; i < available; ++i) buf[i] = g_udp.read();
 
-	for(size_t i = 0; i < available; i += 3)
+	for(int stripIdx = 0; stripIdx < NUM_LED_STRIPS; ++stripIdx)
 	{
-		RgbColor col(buf[i], buf[i+1], buf[i+2]);
-		for(auto& s : g_strips) s.SetPixelColor(i/3, col);
+		auto& strip = g_strips[stripIdx];
+		const auto ledCount = LED_COUNTS[stripIdx];
+		for(int ledIdx = 0; ledIdx < ledCount; ++ledIdx)
+		{
+			const auto dataIdx = available / 3 * ledIdx / ledCount * 3;
+			if(dataIdx+2 > available) error();
+			RgbColor col(buf[dataIdx], buf[dataIdx+1], buf[dataIdx+2]);
+			strip.SetPixelColor(ledIdx, col);
+		}
+		strip.Show();
 	}
-	for(auto& s : g_strips) s.Show();
+	delete[] buf;
 }
