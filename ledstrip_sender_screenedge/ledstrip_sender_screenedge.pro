@@ -1,4 +1,4 @@
-#QT += network
+QT += widgets
 
 CONFIG += c++17 console
 CONFIG -= app_bundle
