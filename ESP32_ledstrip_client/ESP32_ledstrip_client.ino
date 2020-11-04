@@ -98,7 +98,7 @@ void error()
 	{
 		if(!animator.IsAnimating()) animator.RestartAnimation(0);
 		animator.UpdateAnimations();
-        for_each_in(g_strips, [&](auto s){ s->Show(); });
+        for_each_in(g_strips, [](auto s){ s->Show(); });
     }
 }
 
@@ -129,7 +129,7 @@ void setup()
 			// play connecting animation
 			if (!animator.IsAnimating()) animator.RestartAnimation(0);
 			animator.UpdateAnimations();
-            for_each_in(g_strips, [&](auto s){ s->Show(); });
+            for_each_in(g_strips, [](auto s){ s->Show(); });
         }
 		Serial.println("Network unreachable.");
 	}
@@ -140,7 +140,7 @@ void setup()
 	{
 		if(!animator.IsAnimating()) animator.RestartAnimation(0);
 		animator.UpdateAnimations();
-        for_each_in(g_strips, [&](auto s){ s->Show(); });
+        for_each_in(g_strips, [](auto s){ s->Show(); });
     }
 
 	Wifi_connected:
@@ -155,7 +155,7 @@ void setup()
 		while(animator.IsAnimating())
 		{
 			animator.UpdateAnimations();
-            for_each_in(g_strips, [&](auto s){ s->Show(); });
+            for_each_in(g_strips, [](auto s){ s->Show(); });
         }
 		animator.RestartAnimation(0);
 	}
@@ -167,24 +167,25 @@ void setup()
 ///////////// LOOP /////////////
 void loop()
 {
-	const auto available = g_udp.parsePacket();
-	if(available == 0) return;
+    const auto available = g_udp.parsePacket();
+    if(available == 0) return;
 
 	auto* buf = new byte[available];
-	for(size_t i = 0; i < available; ++i) buf[i] = g_udp.read();
+    for(size_t i = 0; i < available; ++i) buf[i] = g_udp.read();
 
-	for(int stripIdx = 0; stripIdx < NUM_LED_STRIPS; ++stripIdx)
     for_each_in(g_strips, [available, &buf](auto strip)
-	{
+    {
         const auto ledCount = strip->PixelCount();
 		for(int ledIdx = 0; ledIdx < ledCount; ++ledIdx)
 		{
 			const auto dataIdx = available / 3 * ledIdx / ledCount * 3;
-			if(dataIdx+2 > available) error();
-			RgbColor col(buf[dataIdx], buf[dataIdx+1], buf[dataIdx+2]);
+            if(dataIdx+2 > available) error();
+            RgbColor col(buf[dataIdx], buf[dataIdx+1], buf[dataIdx+2]);
             strip->SetPixelColor(ledIdx, col);
 		}
-        strip->Show();
     });
-	delete[] buf;
+
+    for_each_in(g_strips, [](auto s){ s->Show(); });
+
+    delete[] buf;
 }
