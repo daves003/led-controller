@@ -10,7 +10,7 @@
 // How many LED strips are connected
 constexpr uint8_t NUM_LED_STRIPS = 2;
 // what pins are the strips connected to
-constexpr uint8_t LED_PINS[NUM_LED_STRIPS] = { 21, 23 };
+constexpr uint8_t LED_PINS[NUM_LED_STRIPS] = { 12, 14 };
 // how many LEDs per strip
 constexpr uint16_t LED_COUNTS[NUM_LED_STRIPS] = { 144, 300 };
 
@@ -33,21 +33,14 @@ constexpr unsigned long WIFI_CONNECTION_TIMEOUT = 5000;
 // what port to listen on
 constexpr int PORT = 8000;
 
-// define the LED protocol and frequency
-// global LED strip objects
-tuple<
-//    NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt0Ws2812xMethod>,
-//    NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt1Ws2812xMethod>>
-    NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>>
-g_strips {
-//    {LED_COUNTS[0], LED_PINS[0]},
-    {LED_COUNTS[1], LED_PINS[1]}
-};
-//NeoPixelBus<LedProtocol_t, LedFrequency_t> g_strips[NUM_LED_STRIPS] =
-//{
-//	{LED_COUNTS[0], LED_PINS[0]},
-//    {LED_COUNTS[1], LED_PINS[1]},
-//};
+
+//all the strips
+using Strip0_t = NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt0Ws2812xMethod>;
+using Strip1_t = NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt1Ws2812xMethod>;
+Strip0_t g_strip_0{LED_COUNTS[0], LED_PINS[0]};
+Strip1_t g_strip_1{LED_COUNTS[1], LED_PINS[1]};
+tuple<Strip0_t*, Strip1_t*> g_strips { &g_strip_0, &g_strip_1 };
+
 
 //////////////////////////////////////////////////////////
 ////////////////////////// CODE //////////////////////////
@@ -66,9 +59,9 @@ void animateConnecting(AnimationParam param)
 	const RgbColor color(255, 255, 0);
     for_each(g_strips, [&](auto strip)
     {
-        const auto led = strip.PixelCount() * progress;
-        strip.ClearTo(RgbColor(0,0,0));
-        strip.SetPixelColor(led, color);
+        const auto led = strip->PixelCount() * progress;
+        strip->ClearTo(RgbColor(0,0,0));
+        strip->SetPixelColor(led, color);
 
     });
 }
@@ -81,7 +74,7 @@ void animateConnectionFailure(AnimationParam param)
 	const HsbColor color(0.f, 1.f, brightness);
     for_each(g_strips, [&](auto strip)
     {
-		strip.ClearTo(color);
+        strip->ClearTo(color);
     });
 }
 
@@ -92,7 +85,7 @@ void animateConnected(AnimationParam param)
 	const auto color = on ? RgbColor(0, 255, 0) : RgbColor(0,0,0);
     for_each(g_strips, [&](auto strip)
     {
-		strip.ClearTo(color);
+        strip->ClearTo(color);
     });
 }
 
@@ -105,7 +98,7 @@ void error()
 	{
 		if(!animator.IsAnimating()) animator.RestartAnimation(0);
 		animator.UpdateAnimations();
-        for_each(g_strips, [&](auto s){ s.Show(); });
+        for_each(g_strips, [&](auto s){ s->Show(); });
     }
 }
 
@@ -117,9 +110,9 @@ void setup()
 	// start led strips
     for_each(g_strips, [&](auto strip)
     {
-		strip.Begin();
-		strip.ClearTo(RgbColor(0,0,0));
-		strip.Show();
+        strip->Begin();
+        strip->ClearTo(RgbColor(0,0,0));
+        strip->Show();
     });
 	NeoPixelAnimator animator(1); //only 1 animation
 
@@ -136,7 +129,7 @@ void setup()
 			// play connecting animation
 			if (!animator.IsAnimating()) animator.RestartAnimation(0);
 			animator.UpdateAnimations();
-            for_each(g_strips, [&](auto s){ s.Show(); });
+            for_each(g_strips, [&](auto s){ s->Show(); });
         }
 		Serial.println("Network unreachable.");
 	}
@@ -147,7 +140,7 @@ void setup()
 	{
 		if(!animator.IsAnimating()) animator.RestartAnimation(0);
 		animator.UpdateAnimations();
-        for_each(g_strips, [&](auto s){ s.Show(); });
+        for_each(g_strips, [&](auto s){ s->Show(); });
     }
 
 	Wifi_connected:
@@ -162,7 +155,7 @@ void setup()
 		while(animator.IsAnimating())
 		{
 			animator.UpdateAnimations();
-            for_each(g_strips, [&](auto s){ s.Show(); });
+            for_each(g_strips, [&](auto s){ s->Show(); });
         }
 		animator.RestartAnimation(0);
 	}
@@ -183,15 +176,15 @@ void loop()
 	for(int stripIdx = 0; stripIdx < NUM_LED_STRIPS; ++stripIdx)
     for_each(g_strips, [available, &buf](auto strip)
 	{
-        const auto ledCount = strip.PixelCount();
+        const auto ledCount = strip->PixelCount();
 		for(int ledIdx = 0; ledIdx < ledCount; ++ledIdx)
 		{
 			const auto dataIdx = available / 3 * ledIdx / ledCount * 3;
 			if(dataIdx+2 > available) error();
 			RgbColor col(buf[dataIdx], buf[dataIdx+1], buf[dataIdx+2]);
-			strip.SetPixelColor(ledIdx, col);
+            strip->SetPixelColor(ledIdx, col);
 		}
-		strip.Show();
+        strip->Show();
     });
 	delete[] buf;
 }
