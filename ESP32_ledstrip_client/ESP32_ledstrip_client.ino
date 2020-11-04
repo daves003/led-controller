@@ -57,7 +57,7 @@ void animateConnecting(AnimationParam param)
 	float progress = (param.progress>0.5) ? 2*(1-param.progress) : 2*(param.progress);
 	progress = NeoEase::CubicInOut(progress);
 	const RgbColor color(255, 255, 0);
-    for_each(g_strips, [&](auto strip)
+    for_each_in(g_strips, [&](auto strip)
     {
         const auto led = strip->PixelCount() * progress;
         strip->ClearTo(RgbColor(0,0,0));
@@ -72,7 +72,7 @@ void animateConnectionFailure(AnimationParam param)
 	const float progress = (param.progress>0.5) ? 2*(1-param.progress) : 2*(param.progress);
 	const float brightness = NeoEase::CubicIn(progress);
 	const HsbColor color(0.f, 1.f, brightness);
-    for_each(g_strips, [&](auto strip)
+    for_each_in(g_strips, [&](auto strip)
     {
         strip->ClearTo(color);
     });
@@ -83,7 +83,7 @@ void animateConnected(AnimationParam param)
 	// two abrupt green flashes
 	const bool on = (param.progress < 0.25) || (param.progress > 0.5 && param.progress < 0.75);
 	const auto color = on ? RgbColor(0, 255, 0) : RgbColor(0,0,0);
-    for_each(g_strips, [&](auto strip)
+    for_each_in(g_strips, [&](auto strip)
     {
         strip->ClearTo(color);
     });
@@ -98,7 +98,7 @@ void error()
 	{
 		if(!animator.IsAnimating()) animator.RestartAnimation(0);
 		animator.UpdateAnimations();
-        for_each(g_strips, [&](auto s){ s->Show(); });
+        for_each_in(g_strips, [&](auto s){ s->Show(); });
     }
 }
 
@@ -108,7 +108,7 @@ void setup()
 	Serial.begin(115200);
 	Serial.println("Starting...");
 	// start led strips
-    for_each(g_strips, [&](auto strip)
+    for_each_in(g_strips, [&](auto strip)
     {
         strip->Begin();
         strip->ClearTo(RgbColor(0,0,0));
@@ -129,7 +129,7 @@ void setup()
 			// play connecting animation
 			if (!animator.IsAnimating()) animator.RestartAnimation(0);
 			animator.UpdateAnimations();
-            for_each(g_strips, [&](auto s){ s->Show(); });
+            for_each_in(g_strips, [&](auto s){ s->Show(); });
         }
 		Serial.println("Network unreachable.");
 	}
@@ -140,7 +140,7 @@ void setup()
 	{
 		if(!animator.IsAnimating()) animator.RestartAnimation(0);
 		animator.UpdateAnimations();
-        for_each(g_strips, [&](auto s){ s->Show(); });
+        for_each_in(g_strips, [&](auto s){ s->Show(); });
     }
 
 	Wifi_connected:
@@ -155,7 +155,7 @@ void setup()
 		while(animator.IsAnimating())
 		{
 			animator.UpdateAnimations();
-            for_each(g_strips, [&](auto s){ s->Show(); });
+            for_each_in(g_strips, [&](auto s){ s->Show(); });
         }
 		animator.RestartAnimation(0);
 	}
@@ -174,7 +174,7 @@ void loop()
 	for(size_t i = 0; i < available; ++i) buf[i] = g_udp.read();
 
 	for(int stripIdx = 0; stripIdx < NUM_LED_STRIPS; ++stripIdx)
-    for_each(g_strips, [available, &buf](auto strip)
+    for_each_in(g_strips, [available, &buf](auto strip)
 	{
         const auto ledCount = strip->PixelCount();
 		for(int ledIdx = 0; ledIdx < ledCount; ++ledIdx)

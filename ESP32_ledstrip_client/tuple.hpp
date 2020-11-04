@@ -75,7 +75,7 @@ namespace detail
 }
 
 template<typename Function_t, typename... Tp>
-constexpr void for_each(const tuple<Tp...>& tuple, Function_t function)
+constexpr void for_each_in(const tuple<Tp...>& tuple, Function_t function)
 {
     detail::for_each_impl<0, Function_t, Tp...>(tuple, function);
 }
