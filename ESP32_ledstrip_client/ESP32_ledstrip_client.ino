@@ -1,18 +1,18 @@
 #include <WiFi.h>
 #include <NeoPixelBus.h>
 #include <NeoPixelAnimator.h>
-//#include <Husarnet.h>
+#include "tuple.hpp"
 
 //////////////////////////////////////////////////////////
 //////////////////////// SETTINGS ////////////////////////
 //////////////////////////////////////////////////////////
 
 // How many LED strips are connected
-constexpr uint8_t NUM_LED_STRIPS = 1;
+constexpr uint8_t NUM_LED_STRIPS = 2;
 // what pins are the strips connected to
-constexpr uint8_t LED_PINS[NUM_LED_STRIPS] = { 12 };
+constexpr uint8_t LED_PINS[NUM_LED_STRIPS] = { 21, 23 };
 // how many LEDs per strip
-constexpr uint16_t LED_COUNTS[NUM_LED_STRIPS] = { 144 };
+constexpr uint16_t LED_COUNTS[NUM_LED_STRIPS] = { 144, 300 };
 
 // how many wifi networks
 constexpr int NUM_NETWORKS = 2;
@@ -34,19 +34,24 @@ constexpr unsigned long WIFI_CONNECTION_TIMEOUT = 5000;
 constexpr int PORT = 8000;
 
 // define the LED protocol and frequency
-using LedProtocol_t  = NeoGrbFeature;
-using LedFrequency_t = NeoWs2812xMethod;
-
+// global LED strip objects
+tuple<
+//    NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt0Ws2812xMethod>,
+//    NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt1Ws2812xMethod>>
+    NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>>
+g_strips {
+//    {LED_COUNTS[0], LED_PINS[0]},
+    {LED_COUNTS[1], LED_PINS[1]}
+};
+//NeoPixelBus<LedProtocol_t, LedFrequency_t> g_strips[NUM_LED_STRIPS] =
+//{
+//	{LED_COUNTS[0], LED_PINS[0]},
+//    {LED_COUNTS[1], LED_PINS[1]},
+//};
 
 //////////////////////////////////////////////////////////
 ////////////////////////// CODE //////////////////////////
 //////////////////////////////////////////////////////////
-
-// global LED strip objects
-NeoPixelBus<LedProtocol_t, LedFrequency_t> g_strips[NUM_LED_STRIPS] =
-{
-	{LED_COUNTS[0], LED_PINS[0]},
-};
 
 // global udp listener
 WiFiUDP g_udp;
@@ -59,12 +64,13 @@ void animateConnecting(AnimationParam param)
 	float progress = (param.progress>0.5) ? 2*(1-param.progress) : 2*(param.progress);
 	progress = NeoEase::CubicInOut(progress);
 	const RgbColor color(255, 255, 0);
-	for(auto& strip : g_strips)
-	{
-		const auto led = strip.PixelCount() * progress;
-		strip.ClearTo(RgbColor(0,0,0));
-		strip.SetPixelColor(led, color);
-	}
+    for_each(g_strips, [&](auto strip)
+    {
+        const auto led = strip.PixelCount() * progress;
+        strip.ClearTo(RgbColor(0,0,0));
+        strip.SetPixelColor(led, color);
+
+    });
 }
 
 void animateConnectionFailure(AnimationParam param)
@@ -73,10 +79,10 @@ void animateConnectionFailure(AnimationParam param)
 	const float progress = (param.progress>0.5) ? 2*(1-param.progress) : 2*(param.progress);
 	const float brightness = NeoEase::CubicIn(progress);
 	const HsbColor color(0.f, 1.f, brightness);
-	for(auto& strip : g_strips)
-	{
+    for_each(g_strips, [&](auto strip)
+    {
 		strip.ClearTo(color);
-	}
+    });
 }
 
 void animateConnected(AnimationParam param)
@@ -84,10 +90,10 @@ void animateConnected(AnimationParam param)
 	// two abrupt green flashes
 	const bool on = (param.progress < 0.25) || (param.progress > 0.5 && param.progress < 0.75);
 	const auto color = on ? RgbColor(0, 255, 0) : RgbColor(0,0,0);
-	for(auto& strip : g_strips)
-	{
+    for_each(g_strips, [&](auto strip)
+    {
 		strip.ClearTo(color);
-	}
+    });
 }
 
 void error()
@@ -99,8 +105,8 @@ void error()
 	{
 		if(!animator.IsAnimating()) animator.RestartAnimation(0);
 		animator.UpdateAnimations();
-		for(auto& s : g_strips) s.Show();
-	}
+        for_each(g_strips, [&](auto s){ s.Show(); });
+    }
 }
 
 ///////////// SETUP /////////////
@@ -109,12 +115,12 @@ void setup()
 	Serial.begin(115200);
 	Serial.println("Starting...");
 	// start led strips
-	for(auto& strip : g_strips)
-	{
+    for_each(g_strips, [&](auto strip)
+    {
 		strip.Begin();
 		strip.ClearTo(RgbColor(0,0,0));
 		strip.Show();
-	}
+    });
 	NeoPixelAnimator animator(1); //only 1 animation
 
 	// connect to wifi
@@ -130,8 +136,8 @@ void setup()
 			// play connecting animation
 			if (!animator.IsAnimating()) animator.RestartAnimation(0);
 			animator.UpdateAnimations();
-			for(auto& s : g_strips) s.Show();
-		}
+            for_each(g_strips, [&](auto s){ s.Show(); });
+        }
 		Serial.println("Network unreachable.");
 	}
 	// play failure animation
@@ -141,8 +147,8 @@ void setup()
 	{
 		if(!animator.IsAnimating()) animator.RestartAnimation(0);
 		animator.UpdateAnimations();
-		for(auto& s : g_strips) s.Show();
-	}
+        for_each(g_strips, [&](auto s){ s.Show(); });
+    }
 
 	Wifi_connected:
 	Serial.println("Connection established.");
@@ -156,8 +162,8 @@ void setup()
 		while(animator.IsAnimating())
 		{
 			animator.UpdateAnimations();
-			for(auto& s : g_strips) s.Show();
-		}
+            for_each(g_strips, [&](auto s){ s.Show(); });
+        }
 		animator.RestartAnimation(0);
 	}
 	while (error);
@@ -175,9 +181,9 @@ void loop()
 	for(size_t i = 0; i < available; ++i) buf[i] = g_udp.read();
 
 	for(int stripIdx = 0; stripIdx < NUM_LED_STRIPS; ++stripIdx)
+    for_each(g_strips, [available, &buf](auto strip)
 	{
-		auto& strip = g_strips[stripIdx];
-		const auto ledCount = LED_COUNTS[stripIdx];
+        const auto ledCount = strip.PixelCount();
 		for(int ledIdx = 0; ledIdx < ledCount; ++ledIdx)
 		{
 			const auto dataIdx = available / 3 * ledIdx / ledCount * 3;
@@ -186,6 +192,6 @@ void loop()
 			strip.SetPixelColor(ledIdx, col);
 		}
 		strip.Show();
-	}
+    });
 	delete[] buf;
 }
